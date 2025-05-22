@@ -65,15 +65,24 @@ async def generate_image(
     prompt: str,
     reference_images: list[str] | None = None,
     previous_response_id: str | None = None,
+    quality: str = "high",
+    size: str = "1024x1024",
+    background: str = "transparent",
+    output_format: str = "png",
 ) -> dict[str, str | None]:
     """Generate an image using OpenAI's Responses API.
     Supports initial generation with text and reference images,
     and follow-up generation using a previous_response_id.
+    Allows customization of image quality, size, background, and format.
 
     Args:
         prompt: The textual description or follow-up instruction.
         reference_images: Optional list of paths/URLs to reference images (for initial generation).
         previous_response_id: Optional ID of the previous response for multi-turn generation.
+        quality: Quality of the generated image (low, medium, high, auto).
+        size: Dimensions of the generated image (e.g., 1024x1024).
+        background: Background of the generated image (opaque, transparent, auto).
+        output_format: Output format (png, jpeg, webp).
 
     Returns:
         A dictionary containing:
@@ -85,13 +94,29 @@ async def generate_image(
     current_api_response_id: str | None = None
 
     try:
+        tool_parameters: dict[str, Any] = {
+            "type": "image_generation",
+            "quality": quality,
+            "size": size,
+            "background": background,
+            "output_format": output_format,
+        }
+        
+        # Ensure background transparency is only set for png/webp
+        if output_format not in ["png", "webp"] and background == "transparent":
+            print(f"Warning: Transparent background is only supported for PNG and WEBP formats. Defaulting to opaque for {output_format}.")
+            tool_parameters["background"] = "opaque"
+        elif background == "transparent" and output_format not in ["png", "webp"]:
+            # This case should not be hit due to above, but as a safeguard
+            tool_parameters["background"] = "opaque" 
+
         call_params: dict[str, Any] = {
             "model": "gpt-4o",
-            "tools": [{"type": "image_generation"}]
+            "tools": [tool_parameters]
         }
 
         if previous_response_id:
-            call_params["input"] = prompt  # Simple string prompt for follow-up
+            call_params["input"] = prompt
             call_params["previous_response_id"] = previous_response_id
         else:
             # Initial generation: construct detailed input
@@ -132,7 +157,7 @@ async def generate_image(
                 image_base64_data = image_base64_data.split(',', 1)[1]
             image_bytes = base64.b64decode(image_base64_data)
             temp_dir = tempfile.gettempdir()
-            file_name = f"generated_image_{uuid.uuid4()}.png"
+            file_name = f"generated_image_{uuid.uuid4()}.{output_format}"
             generated_image_path = str(Path(temp_dir) / file_name)
             with open(generated_image_path, "wb") as f:
                 f.write(image_bytes)

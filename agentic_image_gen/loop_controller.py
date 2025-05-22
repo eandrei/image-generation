@@ -15,12 +15,23 @@ MAX_ITERATIONS = 2
 SCORE_THRESHOLD = 90
 
 
-async def run_image_generation_loop(prompt: str, reference_images: list[str] | None) -> dict:
+async def run_image_generation_loop(
+    prompt: str, 
+    reference_images: list[str] | None,
+    quality: str,
+    size: str,
+    background: str,
+    output_format: str
+) -> dict:
     """Run the iterative prompt→image→evaluate loop.
 
     Args:
         prompt: The initial prompt from the user.
         reference_images: Optional list of reference image URLs or paths.
+        quality: Quality of the generated image (low, medium, high, auto).
+        size: Dimensions of the generated image (e.g., 1024x1024).
+        background: Background of the generated image (opaque, transparent, auto).
+        output_format: Output format (png, jpeg, webp).
 
     Returns:
         A dictionary containing the best image, final score and full history.
@@ -45,7 +56,11 @@ async def run_image_generation_loop(prompt: str, reference_images: list[str] | N
         gen_result = await image_gen.generate_image(
             current_prompt, 
             reference_images if not current_openai_response_id else None,
-            current_openai_response_id
+            current_openai_response_id,
+            quality,
+            size,
+            background,
+            output_format
         )
         image_url = gen_result["image_path"] or ""
         current_openai_response_id = gen_result["response_id"]
