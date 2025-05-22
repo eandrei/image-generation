@@ -1,13 +1,15 @@
+import asyncio
 import json
+import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agentic_image_gen import assistant_manager as am
 
 
-@pytest.mark.asyncio
-async def test_create_assistant_writes_config(tmp_path, monkeypatch):
+def test_create_assistant_writes_config(tmp_path, monkeypatch):
     config_file = tmp_path / "assistant_config.json"
     monkeypatch.setattr(am, "CONFIG_PATH", config_file)
 
@@ -16,7 +18,7 @@ async def test_create_assistant_writes_config(tmp_path, monkeypatch):
     fake_client.beta.assistants.create.return_value = fake_assistant
 
     with patch("agentic_image_gen.assistant_manager.get_client", return_value=fake_client):
-        assistant_id = await am.create_assistant()
+        assistant_id = asyncio.run(am.create_assistant())
 
     assert assistant_id == "asst_123"
     assert json.loads(config_file.read_text())["assistant_id"] == "asst_123"
