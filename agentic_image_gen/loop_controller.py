@@ -11,7 +11,7 @@ from . import (
     thread_manager,
 )
 
-MAX_ITERATIONS = 10
+MAX_ITERATIONS = 2
 SCORE_THRESHOLD = 90
 
 
@@ -37,11 +37,30 @@ async def run_image_generation_loop(prompt: str, reference_images: list[str] | N
     best_score = -1
     best_image_url = ""
     current_prompt = prompt
+    current_openai_response_id: str | None = None
 
-    for _ in range(MAX_ITERATIONS):
-        image_url = await image_gen.generate_image(current_prompt)
+    for i in range(MAX_ITERATIONS):
+        print(f"\nIteration {i+1}/{MAX_ITERATIONS}")
+        
+        gen_result = await image_gen.generate_image(
+            current_prompt, 
+            reference_images if not current_openai_response_id else None,
+            current_openai_response_id
+        )
+        image_url = gen_result["image_path"] or ""
+        current_openai_response_id = gen_result["response_id"]
+
+        if not image_url:
+            print("Failed to generate image in this iteration. Skipping evaluation and prompting.")
+            if not current_openai_response_id:
+                print("Critical failure in initial image generation. Aborting loop.")
+                break
+            continue
+
         image_history.append(image_url)
 
+        print(f"Generated image: {image_url}")
+        print(f"Evaluating image with prompt: {current_prompt}")
         evaluation = await evaluator.evaluate_image(image_url, current_prompt)
         feedback_history.append(evaluation["feedback"])
         score = evaluation["score"]
