@@ -4,9 +4,11 @@ from pathlib import Path
 
 import pytest
 
+
 @pytest.fixture
 def anyio_backend():
     return "asyncio"
+
 
 # Ensure package root is on sys.path for imports
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,4 +33,3 @@ def pytest_pyfunc_call(pyfuncitem):
         loop.close()
         return True
     return None
-
