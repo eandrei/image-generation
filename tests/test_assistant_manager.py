@@ -6,7 +6,7 @@ import pytest
 from agentic_image_gen import assistant_manager as am
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio("asyncio")
 async def test_create_assistant_writes_config(tmp_path, monkeypatch):
     config_file = tmp_path / "assistant_config.json"
     monkeypatch.setattr(am, "CONFIG_PATH", config_file)
