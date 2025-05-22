@@ -4,13 +4,30 @@ import asyncio
 import base64
 import json
 import os
+import re
 from pathlib import Path
+from typing import Any
 
 from openai import AsyncOpenAI
 
 SYSTEM_PROMPT = (
     'You evaluate generated images and respond with JSON: {"score": <0-100>, "feedback": <string>}'
 )
+
+
+def _parse_json_response(content: str) -> dict[str, Any]:
+    """Extract JSON object from LLM response."""
+    text = content.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\n", "", text)
+        text = re.sub(r"\n```$", "", text)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if match:
+            return json.loads(match.group(0))
+        raise
 
 
 async def evaluate_image(image_path: str, prompt: str) -> dict:
@@ -47,4 +64,4 @@ async def evaluate_image(image_path: str, prompt: str) -> dict:
         temperature=0,
     )
     content = response.choices[0].message.content or ""
-    return json.loads(content.strip())
+    return _parse_json_response(content)

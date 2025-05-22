@@ -22,3 +22,15 @@ async def test_evaluate_image_file(monkeypatch, tmp_path):
     result = await evaluator.evaluate_image(str(img_file), "prompt")
 
     assert result == {"score": 95, "feedback": "good"}
+
+
+def test_parse_json_response_variants():
+    cases = [
+        '```json\n{"score": 88, "feedback": "ok"}\n```',
+        'Result: {"score": 70, "feedback": "fine"}',
+    ]
+
+    for text in cases:
+        parsed = evaluator._parse_json_response(text)
+        assert parsed["score"]
+        assert parsed["feedback"]
