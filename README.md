@@ -78,12 +78,18 @@ Powered by OpenAI GPT-4 API
 - Refine prompt for clarity and precision
 - Apply feedback from previous evaluation
 - Avoid drift from original intent
-
 Prompt Example:
 
 ```python
 "Refine the following image generation prompt by applying the feedback. Prompt: 'A vintage ring on silk.' Feedback: 'Lighting is too harsh. Ring needs to be centered.'"
 ```
+
+### assistant_manager.py — Assistant Lifecycle Helper
+`create_assistant() -> str`
+
+Handles creation and persistence of the OpenAI Assistant used by the prompter.
+The assistant ID is stored in `assistant_config.json` so it can be reused in
+future runs.
 
 ### image_gen.py — Image Generator
 `generate_image(prompt: str) -> str`
@@ -181,6 +187,33 @@ Must evaluate based on:
 - boto3, firebase_admin, nhost — cloud upload SDKs
 - transformers — CLIP for similarity scoring (optional)
 - uuid, os, datetime — for file versioning and storage
+
+## 🔧 Environment Variables
+
+Set the following variables before running the server:
+
+- `OPENAI_API_KEY` – required for GPT-4 and DALL·E requests
+- `STABILITY_API_KEY` – optional, enables SDXL image generation
+- `NHOST_URL` and `NHOST_ANON_KEY` – optional, for Nhost storage
+- `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` – optional, for S3 uploads
+
+Example on Linux/macOS:
+
+```bash
+export OPENAI_API_KEY="sk-..."
+export STABILITY_API_KEY="sdxl-..."  # optional
+```
+
+## 🚀 Running the API Server
+
+Use [Uvicorn](https://www.uvicorn.org/) to start the FastAPI app:
+
+```bash
+uvicorn agentic_image_gen.main:app --reload
+```
+
+The server will listen on `http://127.0.0.1:8000`.  Send `POST /generate`
+requests as described above to trigger the image-generation loop.
 
 ## 🧠 Prompter Agent Instructions
 - Maintain original subject (do not change core topic)
