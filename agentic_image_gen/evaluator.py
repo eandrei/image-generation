@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import os
@@ -25,7 +26,8 @@ async def evaluate_image(image_path: str, prompt: str) -> dict:
     client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     if Path(image_path).exists():
-        b64_data = base64.b64encode(Path(image_path).read_bytes()).decode()
+        file_bytes = await asyncio.to_thread(Path(image_path).read_bytes)
+        b64_data = base64.b64encode(file_bytes).decode()
         image_url = f"data:image/png;base64,{b64_data}"
     else:
         image_url = image_path
