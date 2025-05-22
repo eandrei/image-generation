@@ -46,5 +46,5 @@ async def evaluate_image(image_path: str, prompt: str) -> dict:
         ],
         temperature=0,
     )
-    content = response.choices[0].message.content.strip()
-    return json.loads(content)
+    content = response.choices[0].message.content or ""
+    return json.loads(content.strip())

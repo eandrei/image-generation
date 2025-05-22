@@ -32,31 +32,14 @@ Final Output (best image + logs)
 
 ## 📦 Component Breakdown
 
-### main.py — API Server
-**Framework:** FastAPI
+### cli.py — Command Line Interface
+Run the image generation loop directly from the terminal.
 
-**Routes:**
-
-`POST /generate`: Accepts request body with:
-
-```json
-{
-  "prompt": "text description",
-  "reference_images": ["base64_or_url", ...]
-}
+```bash
+python -m agentic_image_gen -- "a vintage ring on silk"
 ```
 
-Calls `loop_controller.run_image_generation_loop()` and returns:
-
-```json
-{
-  "best_image_url": "https://...",
-  "final_score": 94,
-  "prompt_history": [...],
-  "image_history": [...],
-  "feedback_history": [...]
-}
-```
+Outputs the final result as JSON once the loop completes.
 
 ### loop_controller.py — Core Logic
 `run_image_generation_loop(prompt, reference_images) -> dict`
@@ -204,16 +187,15 @@ export OPENAI_API_KEY="sk-..."
 export STABILITY_API_KEY="sdxl-..."  # optional
 ```
 
-## 🚀 Running the API Server
+## 🚀 Running from the Command Line
 
-Use [Uvicorn](https://www.uvicorn.org/) to start the FastAPI app:
+Invoke the CLI with your prompt:
 
 ```bash
-uvicorn agentic_image_gen.main:app --reload
+python -m agentic_image_gen -- "A vintage ring on pink silk"
 ```
 
-The server will listen on `http://127.0.0.1:8000`.  Send `POST /generate`
-requests as described above to trigger the image-generation loop.
+The script prints a JSON blob containing the best image URL and full history.
 
 ## 🧠 Prompter Agent Instructions
 - Maintain original subject (do not change core topic)
@@ -231,7 +213,7 @@ requests as described above to trigger the image-generation loop.
 - Ensure scoring is consistent across iterations
 
 ## ✅ Acceptance Criteria
-- Accepts input prompt and optional image list via API
+- Accepts input prompt and optional image list via CLI
 - Generates 1–10 image iterations
 - Refines prompts based on prior evaluation
 - Evaluator scores and critiques each image

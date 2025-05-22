@@ -16,4 +16,7 @@ async def generate_image(prompt: str) -> str:
     """
     client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     response = await client.images.generate(model="dall-e-3", prompt=prompt, n=1, size="1024x1024")
-    return response.data[0].url
+    data = response.data or []
+    if data:
+        return data[0].url or ""
+    return ""
