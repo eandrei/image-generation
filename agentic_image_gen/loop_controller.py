@@ -11,8 +11,8 @@ from . import (
     thread_manager,
 )
 
-MAX_ITERATIONS = 2
-SCORE_THRESHOLD = 90
+MAX_ITERATIONS = 3
+SCORE_THRESHOLD = 95
 
 
 async def run_image_generation_loop(
@@ -55,7 +55,7 @@ async def run_image_generation_loop(
         
         gen_result = await image_gen.generate_image(
             current_prompt, 
-            reference_images if not current_openai_response_id else None,
+            reference_images,
             current_openai_response_id,
             quality,
             size,
@@ -77,6 +77,7 @@ async def run_image_generation_loop(
         print(f"Generated image: {image_url}")
         print(f"Evaluating image with prompt: {current_prompt}")
         evaluation = await evaluator.evaluate_image(image_url, current_prompt)
+        print(f"Evaluator Response: {evaluation}")
         feedback_history.append(evaluation["feedback"])
         score = evaluation["score"]
 

@@ -49,11 +49,11 @@ All modules must be **Python 3.9+** (as per current environment), **async-first*
 
 | Agent            | Module(s)                                 | Key Function(s) & I/O                                                                                                |
 |------------------|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
-| **CLI Handler**  | `cli.py`                                  | `main()` → parses args, calls `run_image_generation_loop`.                                                           |
-| **LoopController** | `loop_controller.py`                      | `run_image_generation_loop(prompt, ref_imgs) -> dict` → Orchestrates iterations & termination.                     |
-| **Prompter**     | `prompter.py`, `assistant_manager.py`, `thread_manager.py`, `run_orchestrator.py`, `message_sender.py` | `generate_prompt(previous_prompt, feedback) -> str` → Improves prompt using an OpenAI Assistant.                         |
-| **ImageGen**     | `image_gen.py`                            | `generate_image(prompt, ref_imgs?, prev_resp_id?) -> {image_path, response_id}` → Uses OpenAI Responses API (gpt-4o). Accepts optional reference images (local/URL) for initial generation, and `previous_response_id` for multi-turn edits. Returns local path to image & API response ID. |
-| **Evaluator**    | `evaluator.py`                            | `evaluate_image(image_path, prompt) -> dict` → Returns `{score:int, feedback:str}` (0–100) using GPT-4o with Vision. |
+| **CLI Handler**  | `cli.py`                                  | `main()` → parses args (prompt, refs, quality, size, background, format), calls `run_image_generation_loop`.        |
+| **LoopController** | `loop_controller.py`                      | `run_image_generation_loop(...) -> dict` → Orchestrates iterations & termination. Passes image parameters.         |
+| **Prompter**     | `prompter.py`, `assistant_manager.py`, etc. | `generate_prompt(...) -> str` → Improves prompt using an OpenAI Assistant. For jewelry, Assistant instructions should emphasize clarity, material accuracy, lighting, and commercial appeal. |
+| **ImageGen**     | `image_gen.py`                            | `generate_image(..., quality, size, background, format) -> {image_path, response_id}` → Uses OpenAI Responses API (gpt-4o) with specified image parameters. |
+| **Evaluator**    | `evaluator.py`                            | `evaluate_image(...) -> dict` → Returns `{score, feedback}` using GPT-4o Vision. System prompt is tailored for jewelry photography criteria (clarity, materials, lighting, commercial appeal). |
 
 All public functions **must be fully type-hinted** and include Google-style docstrings.
 

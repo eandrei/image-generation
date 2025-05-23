@@ -115,32 +115,40 @@ async def generate_image(
             "tools": [tool_parameters]
         }
 
+        # Construct the user content list, always including the text prompt
+        input_user_content_list: list[dict] = [{"type": "input_text", "text": prompt}]
+        images_to_encode: list[str] = []
+
         if previous_response_id:
-            call_params["input"] = prompt
             call_params["previous_response_id"] = previous_response_id
+            # For follow-up, if reference_images are provided, only use the first one (main product image)
+            if reference_images and len(reference_images) > 0:
+                images_to_encode.append(reference_images[0])
         else:
-            # Initial generation: construct detailed input
-            input_user_content_list: list[dict] = [{"type": "input_text", "text": prompt}]
+            # For initial generation, use all provided reference images
             if reference_images:
-                async with aiohttp.ClientSession() as session:
-                    tasks = [_fetch_and_encode_image(session, ref_img_src) for ref_img_src in reference_images]
-                    encoded_images = await asyncio.gather(*tasks)
-                    for ref_img_src, base64_data_url in zip(reference_images, encoded_images):
-                        if base64_data_url:
-                            input_user_content_list.append({"type": "input_image", "image_url": base64_data_url})
-                        else:
-                            print(f"Skipping reference image due to processing error: {ref_img_src}")
-            
-            # Avoid API call if only an empty text prompt and no reference images for initial call
-            is_prompt_empty = not prompt.strip()
-            has_only_empty_text_prompt = len(input_user_content_list) == 1 and input_user_content_list[0]["type"] == "input_text" and is_prompt_empty
-            
-            if has_only_empty_text_prompt:
-                print("Warning: No valid prompt or reference images provided for initial image generation.")
-                return {"image_path": "", "response_id": None}
+                images_to_encode.extend(reference_images)
 
-            call_params["input"] = [{"role": "user", "content": input_user_content_list}]
+        if images_to_encode:
+            async with aiohttp.ClientSession() as session:
+                tasks = [_fetch_and_encode_image(session, ref_img_src) for ref_img_src in images_to_encode]
+                encoded_images = await asyncio.gather(*tasks)
+                for ref_img_src, base64_data_url in zip(images_to_encode, encoded_images):
+                    if base64_data_url:
+                        input_user_content_list.append({"type": "input_image", "image_url": base64_data_url})
+                    else:
+                        print(f"Skipping reference image due to processing error: {ref_img_src}")
 
+        # Check for valid input before making API call
+        is_prompt_empty = not prompt.strip()
+        # Valid input means either a non-empty prompt or at least one successfully encoded image
+        has_image_input = any(item["type"] == "input_image" for item in input_user_content_list)
+        if is_prompt_empty and not has_image_input:
+            print("Warning: No valid prompt or reference images provided for image generation.")
+            return {"image_path": "", "response_id": None}
+
+        call_params["input"] = [{"role": "user", "content": input_user_content_list}]
+        
         response = await client.responses.create(**call_params)
         current_api_response_id = response.id
         

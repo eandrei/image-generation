@@ -17,7 +17,7 @@ async def main() -> None:
     )
     parser.add_argument(
         "--quality",
-        default="high",
+        default="auto",
         choices=["auto", "low", "medium", "high"],
         help="Quality of the generated image. Defaults to 'high'."
     )
@@ -29,7 +29,7 @@ async def main() -> None:
     )
     parser.add_argument(
         "--background",
-        default="transparent",
+        default="auto",
         choices=["auto", "opaque", "transparent"],
         help="Background of the generated image (PNG/WEBP only for transparent). Defaults to 'transparent'."
     )
