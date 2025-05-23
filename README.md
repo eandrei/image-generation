@@ -100,14 +100,25 @@ python -m agentic_image_gen "A futuristic car in a neon-lit city, inspired by cy
 {
   "best_image_url": "/tmp/generated_image_xxxxxxxx.png", // Path to the best image
   "final_score": 92,
-  "prompt_history": ["Initial prompt...", "Refined prompt..."],
-  "image_history": ["/tmp/generated_image_aaaaaaa.png", "/tmp/generated_image_bbbbbbb.png"],
-  "feedback_history": ["Critique for image 1...", "Critique for image 2..."],
+  "full_history": [
+    {
+      "prompter_query": "Initial prompt...",
+      "result_image": "/tmp/generated_image_aaaaaaa.png",
+      "evaluator_query": "Critique for image 1...",
+      "score": 75
+    },
+    {
+      "prompter_query": "Refined prompt...",
+      "result_image": "/tmp/generated_image_bbbbbbb.png",
+      "evaluator_query": "Critique for image 2...",
+      "score": 92
+    }
+  ],
   "thread_id": "thread_xxxxxxxxxxxx"
 }
 ```
 
-## 🛠 Libraries & Tools
+## 📎 Libraries & Tools
 - `openai` (version 1.0.0+): For interacting with OpenAI APIs (GPT-4o, Assistants).
 - `aiohttp`: For asynchronously fetching images from URLs (used in `image_gen.py`).
 - `Pillow`, `opencv-python` (Potentially used by underlying image processing, or could be added for explicit preprocessing if needed. Not directly in `requirements.txt` currently but good to be aware of for image tasks).
