@@ -78,10 +78,9 @@ async def run_image_generation_loop(
                 break
             continue
 
-        print(f"Generated image: {image_url}", file=sys.stderr)
-        print(f"Evaluating image with prompt: {iteration_prompt}", file=sys.stderr)
+     
         evaluation = await evaluator.evaluate_image(image_url, iteration_prompt)
-        print(f"Evaluator Response: {evaluation}", file=sys.stderr)
+       
         
         iteration_feedback = evaluation["feedback"]
         score = evaluation["score"]
