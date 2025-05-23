@@ -112,7 +112,7 @@ async def generate_image(
             tool_parameters["background"] = "opaque" 
 
         call_params: dict[str, Any] = {
-            "model": "gpt-4o",
+            "model": "gpt-image-1",
             "tools": [tool_parameters]
         }
 
