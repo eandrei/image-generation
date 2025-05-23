@@ -5,6 +5,7 @@ import base64
 import json
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -66,20 +67,40 @@ async def evaluate_image(image_path: str, prompt: str) -> dict:
     else:
         image_url = image_path
 
-    response = await client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": image_url}},
-                ],
-            },
-        ],
-        temperature=0,
-        response_format={"type": "json_object"},
-    )
-    content = response.choices[0].message.content or ""
-    return _parse_json_response(content)
+    try:
+        response = await client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": image_url}},
+                    ],
+                },
+            ],
+            temperature=0,
+            response_format={"type": "json_object"},
+        )
+        
+        content = response.choices[0].message.content or ""
+        
+        if not content.strip():
+            print(f"Warning: Received empty response from OpenAI API for evaluation. Response: {response}", file=sys.stderr)
+            # Return a default response instead of crashing
+            return {
+                "score": 0,
+                "feedback": "Error: Unable to evaluate image due to empty API response."
+            }
+        
+        return _parse_json_response(content)
+        
+    except Exception as e:
+        print(f"Error during image evaluation: {e}", file=sys.stderr)
+        print(f"Response details: {getattr(response, 'model_dump', lambda: 'No response details available')()}", file=sys.stderr)
+        # Return a default response instead of crashing
+        return {
+            "score": 0,
+            "feedback": f"Error: Unable to evaluate image due to API error: {str(e)}"
+        }
