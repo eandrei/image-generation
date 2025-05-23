@@ -4,6 +4,7 @@ import asyncio
 import base64
 import mimetypes
 import os
+import sys # Add sys import
 import tempfile
 import uuid
 from pathlib import Path
@@ -27,7 +28,7 @@ async def _fetch_and_encode_image(session: aiohttp.ClientSession, image_source: 
         if image_source.startswith(("http://", "https://")):
             async with session.get(image_source) as response:
                 if response.status != 200:
-                    print(f"Warning: Failed to download image from URL {image_source}. Status: {response.status}")
+                    print(f"Warning: Failed to download image from URL {image_source}. Status: {response.status}", file=sys.stderr)
                     return None
                 binary_data = await response.read()
                 mime_type = response.content_type
@@ -37,18 +38,18 @@ async def _fetch_and_encode_image(session: aiohttp.ClientSession, image_source: 
                     if guessed_mime_type and guessed_mime_type.startswith("image/"):
                         mime_type = guessed_mime_type
                     else:
-                        print(f"Warning: Could not determine a valid image MIME type for URL {image_source}. Content-Type: {mime_type}")
+                        print(f"Warning: Could not determine a valid image MIME type for URL {image_source}. Content-Type: {mime_type}", file=sys.stderr)
                         # Default to image/png if unable to determine, or handle error more strictly
                         mime_type = "image/png" 
         else:
             image_path = Path(image_source)
             if not image_path.is_file():
-                print(f"Warning: Reference image path not found or not a file: {image_source}")
+                print(f"Warning: Reference image path not found or not a file: {image_source}", file=sys.stderr)
                 return None
 
             mime_type, _ = mimetypes.guess_type(image_path)
             if not mime_type or not mime_type.startswith("image/"):
-                print(f"Warning: Could not determine a valid image MIME type for {image_source}")
+                print(f"Warning: Could not determine a valid image MIME type for {image_source}", file=sys.stderr)
                 return None
 
             with image_path.open("rb") as f:
@@ -57,7 +58,7 @@ async def _fetch_and_encode_image(session: aiohttp.ClientSession, image_source: 
         base64_encoded_data = base64.b64encode(binary_data).decode("utf-8")
         return f"data:{mime_type};base64,{base64_encoded_data}"
     except Exception as e:
-        print(f"Error processing image source {image_source}: {e}")
+        print(f"Error processing image source {image_source}: {e}", file=sys.stderr)
         return None
 
 
@@ -104,7 +105,7 @@ async def generate_image(
         
         # Ensure background transparency is only set for png/webp
         if output_format not in ["png", "webp"] and background == "transparent":
-            print(f"Warning: Transparent background is only supported for PNG and WEBP formats. Defaulting to opaque for {output_format}.")
+            print(f"Warning: Transparent background is only supported for PNG and WEBP formats. Defaulting to opaque for {output_format}.", file=sys.stderr)
             tool_parameters["background"] = "opaque"
         elif background == "transparent" and output_format not in ["png", "webp"]:
             # This case should not be hit due to above, but as a safeguard
@@ -137,14 +138,14 @@ async def generate_image(
                     if base64_data_url:
                         input_user_content_list.append({"type": "input_image", "image_url": base64_data_url})
                     else:
-                        print(f"Skipping reference image due to processing error: {ref_img_src}")
+                        print(f"Skipping reference image due to processing error: {ref_img_src}", file=sys.stderr)
 
         # Check for valid input before making API call
         is_prompt_empty = not prompt.strip()
         # Valid input means either a non-empty prompt or at least one successfully encoded image
         has_image_input = any(item["type"] == "input_image" for item in input_user_content_list)
         if is_prompt_empty and not has_image_input:
-            print("Warning: No valid prompt or reference images provided for image generation.")
+            print("Warning: No valid prompt or reference images provided for image generation.", file=sys.stderr)
             return {"image_path": "", "response_id": None}
 
         call_params["input"] = [{"role": "user", "content": input_user_content_list}]
@@ -170,11 +171,11 @@ async def generate_image(
             with open(generated_image_path, "wb") as f:
                 f.write(image_bytes)
         else:
-            print("No image data found in the API response.")
+            print("No image data found in the API response.", file=sys.stderr)
             if response.output and hasattr(response.output[0], 'content') :
-                print(f"API response output content: {response.output[0].content}")
+                print(f"API response output content: {response.output[0].content}", file=sys.stderr)
 
     except Exception as e:
-        print(f"Error during image generation with Responses API: {e}")
+        print(f"Error during image generation with Responses API: {e}", file=sys.stderr)
     
     return {"image_path": generated_image_path, "response_id": current_api_response_id}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from typing import List
 
 from . import (
@@ -11,7 +12,7 @@ from . import (
     thread_manager,
 )
 
-MAX_ITERATIONS = 2
+MAX_ITERATIONS = 3
 SCORE_THRESHOLD = 95
 
 
@@ -49,9 +50,7 @@ async def run_image_generation_loop(
     current_openai_response_id: str | None = None
 
     for i in range(MAX_ITERATIONS):
-        print(f"\nIteration {i+1}/{MAX_ITERATIONS}")
         
-        # Store the prompt before it's potentially modified for the next iteration
         iteration_prompt = current_prompt
 
         gen_result = await image_gen.generate_image(
@@ -67,8 +66,7 @@ async def run_image_generation_loop(
         current_openai_response_id = gen_result["response_id"]
 
         if not image_url:
-            print("Failed to generate image in this iteration. Skipping evaluation and prompting.")
-            # Even if image generation fails, log what we have
+            print("Failed to generate image in this iteration. Skipping evaluation and prompting.", file=sys.stderr)
             full_history.append({
                 "prompter_query": iteration_prompt,
                 "result_image": None,
@@ -76,14 +74,14 @@ async def run_image_generation_loop(
                 "score": None,
             })
             if not current_openai_response_id:
-                print("Critical failure in initial image generation. Aborting loop.")
+                print("Critical failure in initial image generation. Aborting loop.", file=sys.stderr)
                 break
             continue
 
-        print(f"Generated image: {image_url}")
-        print(f"Evaluating image with prompt: {iteration_prompt}")
+        print(f"Generated image: {image_url}", file=sys.stderr)
+        print(f"Evaluating image with prompt: {iteration_prompt}", file=sys.stderr)
         evaluation = await evaluator.evaluate_image(image_url, iteration_prompt)
-        print(f"Evaluator Response: {evaluation}")
+        print(f"Evaluator Response: {evaluation}", file=sys.stderr)
         
         iteration_feedback = evaluation["feedback"]
         score = evaluation["score"]
@@ -103,7 +101,6 @@ async def run_image_generation_loop(
             break
 
         current_prompt = await prompter.generate_prompt(iteration_prompt, iteration_feedback)
-        # The new current_prompt will be part of the *next* iteration's full_history entry
 
         await run_orchestrator.run_and_stream(thread_id, assistant_id)
 
