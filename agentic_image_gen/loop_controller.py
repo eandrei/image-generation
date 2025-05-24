@@ -12,7 +12,7 @@ from . import (
     thread_manager,
 )
 
-MAX_ITERATIONS = 3
+MAX_ITERATIONS = 1
 SCORE_THRESHOLD = 95
 
 
