@@ -62,28 +62,53 @@ async def _fetch_and_encode_image(session: aiohttp.ClientSession, image_source: 
         return None
 
 
+async def _create_file_from_path(client: AsyncOpenAI, file_path: str) -> str | None:
+    """Upload a file to OpenAI and return the file ID.
+    
+    Args:
+        client: The OpenAI client instance.
+        file_path: Path to the file to upload.
+        
+    Returns:
+        The file ID if successful, None otherwise.
+    """
+    try:
+        with open(file_path, "rb") as f:
+            file_response = await client.files.create(
+                file=f,
+                purpose="vision"
+            )
+        return file_response.id
+    except Exception as e:
+        print(f"Error uploading file {file_path}: {e}", file=sys.stderr)
+        return None
+
+
 async def generate_image(
     prompt: str,
     reference_images: list[str] | None = None,
     previous_response_id: str | None = None,
+    mask_image: str | None = None,
+    use_file_ids: bool = False,
     quality: str = "high",
     size: str = "1024x1024",
     background: str = "transparent",
     output_format: str = "png",
 ) -> dict[str, str | None]:
-    """Generate an image using OpenAI's Responses API.
+    """Generate or edit an image using OpenAI's Image Edits API with gpt-4.1.
     Supports initial generation with text and reference images,
-    and follow-up generation using a previous_response_id.
-    Allows customization of image quality, size, background, and format.
+    follow-up generation using a previous_response_id, and image editing with masks.
 
     Args:
         prompt: The textual description or follow-up instruction.
-        reference_images: Optional list of paths/URLs to reference images (for initial generation).
+        reference_images: Optional list of paths/URLs to reference images.
         previous_response_id: Optional ID of the previous response for multi-turn generation.
-        quality: Quality of the generated image (low, medium, high, auto).
-        size: Dimensions of the generated image (e.g., 1024x1024).
-        background: Background of the generated image (opaque, transparent, auto).
-        output_format: Output format (png, jpeg, webp).
+        mask_image: Optional path to mask image for inpainting (transparent areas will be replaced).
+        use_file_ids: Whether to upload images as files instead of base64 encoding.
+        quality: Quality hint to include in prompt (high, medium, low).
+        size: Size hint to include in prompt (e.g., 1024x1024).
+        background: Background hint to include in prompt (transparent, opaque).
+        output_format: Output format hint to include in prompt (png, jpeg, webp).
 
     Returns:
         A dictionary containing:
@@ -95,50 +120,71 @@ async def generate_image(
     current_api_response_id: str | None = None
 
     try:
+        # Build tool parameters
         tool_parameters: dict[str, Any] = {
             "type": "image_generation",
-            "quality": quality,
-            "size": size,
-            "background": background,
-            "output_format": output_format,
         }
         
-        # Ensure background transparency is only set for png/webp
-        if output_format not in ["png", "webp"] and background == "transparent":
-            print(f"Warning: Transparent background is only supported for PNG and WEBP formats. Defaulting to opaque for {output_format}.", file=sys.stderr)
-            tool_parameters["background"] = "opaque"
-        elif background == "transparent" and output_format not in ["png", "webp"]:
-            # This case should not be hit due to above, but as a safeguard
-            tool_parameters["background"] = "opaque" 
+        # Add optional parameters only if they're not "auto"
+        if quality and quality != "auto":
+            tool_parameters["quality"] = quality
+        if size and size != "auto":
+            tool_parameters["size"] = size
+        if background and background != "auto":
+            tool_parameters["background"] = background
+        if output_format:
+            tool_parameters["output_format"] = output_format
 
         call_params: dict[str, Any] = {
-            "model": "gpt-image-1",
+            "model": "gpt-4.1",
             "tools": [tool_parameters]
         }
 
         # Construct the user content list, always including the text prompt
         input_user_content_list: list[dict] = [{"type": "input_text", "text": prompt}]
-        images_to_encode: list[str] = []
+        images_to_process: list[str] = []
 
         if previous_response_id:
             call_params["previous_response_id"] = previous_response_id
             # For follow-up, if reference_images are provided, only use the first one (main product image)
             if reference_images and len(reference_images) > 0:
-                images_to_encode.append(reference_images[0])
+                images_to_process.append(reference_images[0])
         else:
             # For initial generation, use all provided reference images
             if reference_images:
-                images_to_encode.extend(reference_images)
+                images_to_process.extend(reference_images)
 
-        if images_to_encode:
-            async with aiohttp.ClientSession() as session:
-                tasks = [_fetch_and_encode_image(session, ref_img_src) for ref_img_src in images_to_encode]
-                encoded_images = await asyncio.gather(*tasks)
-                for ref_img_src, base64_data_url in zip(images_to_encode, encoded_images):
-                    if base64_data_url:
-                        input_user_content_list.append({"type": "input_image", "image_url": base64_data_url})
+        # Add mask image as the first image if provided (for inpainting)
+        if mask_image:
+            images_to_process.insert(0, mask_image)
+
+        if images_to_process:
+            if use_file_ids:
+                # Upload images as files and use file IDs
+                for img_path in images_to_process:
+                    if img_path.startswith(("http://", "https://")):
+                        print(f"Warning: Cannot upload URL as file, falling back to base64 for {img_path}", file=sys.stderr)
+                        # Fallback to base64 for URLs
+                        async with aiohttp.ClientSession() as session:
+                            base64_data_url = await _fetch_and_encode_image(session, img_path)
+                            if base64_data_url:
+                                input_user_content_list.append({"type": "input_image", "image_url": base64_data_url})
                     else:
-                        print(f"Skipping reference image due to processing error: {ref_img_src}", file=sys.stderr)
+                        file_id = await _create_file_from_path(client, img_path)
+                        if file_id:
+                            input_user_content_list.append({"type": "input_image", "file_id": file_id})
+                        else:
+                            print(f"Skipping image due to upload error: {img_path}", file=sys.stderr)
+            else:
+                # Use base64 encoding
+                async with aiohttp.ClientSession() as session:
+                    tasks = [_fetch_and_encode_image(session, img_src) for img_src in images_to_process]
+                    encoded_images = await asyncio.gather(*tasks)
+                    for img_src, base64_data_url in zip(images_to_process, encoded_images):
+                        if base64_data_url:
+                            input_user_content_list.append({"type": "input_image", "image_url": base64_data_url})
+                        else:
+                            print(f"Skipping reference image due to processing error: {img_src}", file=sys.stderr)
 
         # Check for valid input before making API call
         is_prompt_empty = not prompt.strip()
@@ -153,17 +199,21 @@ async def generate_image(
         response = await client.responses.create(**call_params)
         current_api_response_id = response.id
         
-        image_base64_data = None
-        if response.output:
-            for output_item in response.output:
-                if hasattr(output_item, 'type') and output_item.type == "image_generation_call":
-                    if hasattr(output_item, 'result') and output_item.result:
-                        image_base64_data = output_item.result
-                        break
+        # Extract image data from response
+        image_generation_calls = [
+            output
+            for output in response.output
+            if hasattr(output, 'type') and output.type == "image_generation_call"
+        ]
         
-        if image_base64_data:
+        image_data = [output.result for output in image_generation_calls if hasattr(output, 'result') and output.result]
+        
+        if image_data:
+            image_base64_data = image_data[0]
+            # Remove data URL prefix if present
             if ',' in image_base64_data:
                 image_base64_data = image_base64_data.split(',', 1)[1]
+            
             image_bytes = base64.b64decode(image_base64_data)
             temp_dir = tempfile.gettempdir()
             file_name = f"generated_image_{uuid.uuid4()}.{output_format}"
@@ -172,10 +222,39 @@ async def generate_image(
                 f.write(image_bytes)
         else:
             print("No image data found in the API response.", file=sys.stderr)
-            if response.output and hasattr(response.output[0], 'content') :
+            if response.output and hasattr(response.output[0], 'content'):
                 print(f"API response output content: {response.output[0].content}", file=sys.stderr)
 
     except Exception as e:
-        print(f"Error during image generation with Responses API: {e}", file=sys.stderr)
+        print(f"Error during image generation with Image Edits API: {e}", file=sys.stderr)
     
     return {"image_path": generated_image_path, "response_id": current_api_response_id}
+
+
+# Convenience function for image editing/inpainting
+async def edit_image(
+    prompt: str,
+    image_path: str,
+    mask_path: str,
+    use_file_ids: bool = False,
+    output_format: str = "png",
+) -> dict[str, str | None]:
+    """Edit an image using a mask (inpainting).
+    
+    Args:
+        prompt: Description of what should be generated in the masked areas.
+        image_path: Path to the image to edit.
+        mask_path: Path to the mask image (transparent areas will be replaced).
+        use_file_ids: Whether to upload images as files instead of base64 encoding.
+        output_format: Output format (png, jpeg, webp).
+        
+    Returns:
+        A dictionary containing the image path and response ID.
+    """
+    return await generate_image(
+        prompt=prompt,
+        reference_images=[image_path],
+        mask_image=mask_path,
+        use_file_ids=use_file_ids,
+        output_format=output_format
+    )

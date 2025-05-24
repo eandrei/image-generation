@@ -54,13 +54,13 @@ async def run_image_generation_loop(
         iteration_prompt = current_prompt
 
         gen_result = await image_gen.generate_image(
-            current_prompt, 
-            reference_images,
-            current_openai_response_id,
-            quality,
-            size,
-            background,
-            output_format
+            prompt=current_prompt, 
+            reference_images=reference_images,
+            previous_response_id=current_openai_response_id,
+            quality=quality,
+            size=size,
+            background=background,
+            output_format=output_format
         )
         image_url = gen_result["image_path"] or ""
         current_openai_response_id = gen_result["response_id"]
